@@ -32,7 +32,10 @@ export function filterMessageData(
   }
   if (filter.values) {
     for (const key in filter.values) {
-      if (!(key in data.msg) || filter.values[key] !== data.msg[key]) {
+      if (
+        !(key in data.msg.decodedMsg) ||
+        filter.values[key] !== data.msg.decodedMsg[key]
+      ) {
         return false;
       }
     }
@@ -40,10 +43,14 @@ export function filterMessageData(
   if (
     filter.type === '/cosmwasm.wasm.v1.MsgExecuteContract' &&
     filter.contractCall &&
-    !(filter.contractCall in data.msg.msg)
+    !(filter.contractCall in data.msg.decodedMsg.msg)
   ) {
     return false;
   }
+  data.msg = {
+    ...data.msg,
+    ...data.msg.decodedMsg,
+  };
   return true;
 }
 
@@ -64,9 +71,19 @@ export function filterMessages(
   const filters =
     filterOrFilters instanceof Array ? filterOrFilters : [filterOrFilters];
 
-  const filteredMessages = messages.filter((message) => {
-    filters.find((filter) => filterMessageData(message, filter));
-  });
+  const filteredMessages = messages
+    .filter((message) => {
+      filters.find((filter) => filterMessageData(message, filter));
+    })
+    .map((msg) => {
+      msg.msg = {
+        ...msg.msg,
+        ...msg.msg.decodedMsg,
+      };
+      delete msg.msg.decodedMsg;
+
+      return msg;
+    });
   return filteredMessages;
 }
 
@@ -105,9 +122,19 @@ export function filterEvents(
 
   const filters =
     filterOrFilters instanceof Array ? filterOrFilters : [filterOrFilters];
-  const filteredEvents = events.filter((event) => {
-    filters.find((filter) => filterEvent(event, filter));
-  });
+  const filteredEvents = events
+    .filter((event) => {
+      filters.find((filter) => filterEvent(event, filter));
+    })
+    .map((evt) => {
+      evt.msg.msg = {
+        ...evt.msg.msg,
+        ...evt.msg.msg.decodedMsg,
+      };
+      delete evt.msg.msg.decodedMsg;
+
+      return evt;
+    });
   return filteredEvents;
 }
 
@@ -169,7 +196,9 @@ function wrapCosmosMsg(
     block: block,
     msg: {
       typeUrl: rawMessage.typeUrl,
-      ...api.decodeMsg<any>(rawMessage),
+      get decodedMsg() {
+        return api.decodeMsg<any>(rawMessage);
+      },
     },
   };
 }
