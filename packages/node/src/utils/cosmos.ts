@@ -47,10 +47,6 @@ export function filterMessageData(
   ) {
     return false;
   }
-  data.msg = {
-    ...data.msg,
-    ...data.msg.decodedMsg,
-  };
   return true;
 }
 
